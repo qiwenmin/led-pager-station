@@ -1,0 +1,12 @@
+WiFi_Credentials wifi_creds[] = {
+    { "ssid1", "pass1" },
+    { "ssid2", "pass2" },
+    { "ssid3", "pass3" },
+};
+
+static const char mqtt_host[] = "mqtt.server";
+static const int mqtt_port = 1883;
+static const char mqtt_username[] = "username";
+static const char mqtt_password[] = "password";
+static const char mqtt_client_id[] = "client-id";
+static const char mqtt_topic[] = "topic";
