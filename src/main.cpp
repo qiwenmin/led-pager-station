@@ -26,23 +26,26 @@ static unsigned char flag = 0;
 // indicators
 class Indicator {
 public:
-    Indicator(uint8_t pin, uint64_t flash_pattern, uint8_t off_value = HIGH)
-        : _pin(pin), _flash_pattern(flash_pattern), _off_value(off_value), _is_on(false) {
+    Indicator(uint8_t pin, uint8_t interval, uint8_t off_value = HIGH)
+        : _pin(pin), _interval(interval), _off_value(off_value), _is_on(false), _cnt(0) {
     };
 
     void setup() {
         pinMode(_pin, OUTPUT);
         digitalWrite(_pin, _off_value);
+    };
 
-        _t.attach_ms(8000 / 64, // 8 seconds total
-            [this]() {
+    void loop() {
+        _cnt++;
+        if (_cnt == _interval) {
+            _cnt = 0;
                 if (_is_on) {
-                    digitalWrite(_pin, _flash_pattern & 1 ? !_off_value : _off_value);
-                    _flash_pattern = (_flash_pattern >> 63) | (_flash_pattern << 1);
-                } else {
-                    digitalWrite(_pin, _off_value);
+                    digitalWrite(_pin, !_off_value);
                 }
-            });
+
+        } else {
+            digitalWrite(_pin, _off_value);
+        }
     };
 
     void setOn(bool is_on = true) {
@@ -54,19 +57,19 @@ public:
     };
 private:
     uint8_t _pin;
-    uint64_t _flash_pattern;
+    uint8_t _interval;
     uint8_t _off_value;
     bool _is_on;
-    Ticker _t;
+    uint8_t _cnt;
 };
 
 #define MQTT_IND_PIN (LED_BUILTIN)
-#define E_FLAG_PIN (14)
-#define N_FLAG_PIN (12)
+#define N_FLAG_PIN (13)
+#define E_FLAG_PIN (12)
 
-Indicator mqtt_indicator(MQTT_IND_PIN, 0x0000000000000001ULL);
-Indicator eflag_indicator(E_FLAG_PIN, 0x5000500050005000ULL);
-Indicator nflag_indicator(N_FLAG_PIN, 0xF0000000F0000000ULL);
+Indicator mqtt_indicator(MQTT_IND_PIN, 200);
+Indicator nflag_indicator(N_FLAG_PIN, 150);
+Indicator eflag_indicator(E_FLAG_PIN, 50);
 
 void setup() {
     mqtt_indicator.setup();
@@ -92,8 +95,6 @@ void setup() {
         Serial.println("].");
 
         flag = msg[0] - '0';
-        eflag_indicator.setOn(flag & 0x01);
-        nflag_indicator.setOn(flag & 0x02);
     };
 
     pager_mqtt.onEvent(mqtt_topic, mqtt_event_listener);
@@ -118,7 +119,13 @@ void loop() {
         }
     }
 
-    mqtt_indicator.setOn(pager_mqtt.getMqttClient().connected());
+    mqtt_indicator.setOn(flag == 0 && pager_mqtt.getMqttClient().connected());
+    nflag_indicator.setOn(flag == 2);
+    eflag_indicator.setOn(flag & 0x01);
 
-    delay(100); // for power saving
+    mqtt_indicator.loop();
+    nflag_indicator.loop();
+    eflag_indicator.loop();
+
+    delay(100); // indicator tick interval and power saving
 }
